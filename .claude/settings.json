@@ -1,0 +1,58 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"$(git rev-parse --show-toplevel)/.claude-subconscious\" node \"$(git rev-parse --show-toplevel)/.claude-subconscious/hooks/silent-npx.cjs\" tsx \"$(git rev-parse --show-toplevel)/.claude-subconscious/scripts/session_start.ts\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"$(git rev-parse --show-toplevel)/.claude-subconscious\" node \"$(git rev-parse --show-toplevel)/.claude-subconscious/hooks/silent-npx.cjs\" tsx \"$(git rev-parse --show-toplevel)/.claude-subconscious/scripts/sync_letta_memory.ts\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"$(git rev-parse --show-toplevel)/.claude-subconscious\" node \"$(git rev-parse --show-toplevel)/.claude-subconscious/hooks/silent-npx.cjs\" tsx \"$(git rev-parse --show-toplevel)/.claude-subconscious/scripts/pretool_sync.ts\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"$(git rev-parse --show-toplevel)/.claude-subconscious\" node \"$(git rev-parse --show-toplevel)/.claude-subconscious/hooks/silent-npx.cjs\" tsx \"$(git rev-parse --show-toplevel)/.claude-subconscious/scripts/sync_letta_memory.ts\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=\"$(git rev-parse --show-toplevel)/.claude-subconscious\" node \"$(git rev-parse --show-toplevel)/.claude-subconscious/hooks/silent-npx.cjs\" tsx \"$(git rev-parse --show-toplevel)/.claude-subconscious/scripts/send_messages_to_letta.ts\"",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

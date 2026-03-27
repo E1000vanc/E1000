@@ -1,0 +1,3 @@
+[submodule ".claude-subconscious"]
+	path = .claude-subconscious
+	url = https://github.com/letta-ai/claude-subconscious.git
