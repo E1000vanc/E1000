@@ -5,8 +5,7 @@
  *  1. Crée des labels personnalisés
  *  2. Archive et labellise tous les emails existants selon des règles
  *  3. Crée des filtres Gmail pour les futurs emails
- *  4. Désabonne des sources de bruit via List-Unsubscribe
- *  5. Vide complètement l'inbox
+ *  4. Vide complètement l'inbox
  *
  * Installation :
  *  1. Ouvrir https://script.google.com
@@ -26,7 +25,7 @@ const LABELS = {
   NOISE:       "🗑️ Noise",
 };
 
-// Règles de tri : { pattern (regex sur from/subject), label, archive, unsubscribe }
+// Règles de tri : { name, from/fromDomain, label, archive }
 const RULES = [
   // ── ADMIN (gouvernement, assurances, banques) ──────────────────────────────
   {
@@ -34,28 +33,24 @@ const RULES = [
     from: ["noreply-irisbox@paradigm.brussels", "myebox.noreply@bosa.fgov.be"],
     label: LABELS.ADMIN,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "AXA Belgium – documents officiels",
     from: ["notification@services.axa.be"],
     label: LABELS.ADMIN,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "Banque Transatlantique",
     from: ["evenements@banquetransatlantique.be"],
     label: LABELS.ADMIN,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "Google Security",
     from: ["no-reply@accounts.google.com"],
     label: LABELS.ADMIN,
     archive: true,
-    unsubscribe: false,
   },
 
   // ── EVENTS (billets, concerts) ─────────────────────────────────────────────
@@ -64,14 +59,12 @@ const RULES = [
     from: ["no-reply@paylogic.com"],
     label: LABELS.EVENTS,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "Jeux d'Hiver",
     from: ["no-reply@anykrowd.app"],
     label: LABELS.EVENTS,
     archive: true,
-    unsubscribe: false,
   },
 
   // ── FINANCE (reçus, transactions) ─────────────────────────────────────────
@@ -80,21 +73,18 @@ const RULES = [
     from: ["noreply@uber.com"],
     label: LABELS.FINANCE,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "Revolut – transactionnel",
     from: ["no-reply@revolut.com"],
     label: LABELS.FINANCE,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "Bankin'",
     from: ["ne-pas-repondre@bankin.com"],
     label: LABELS.FINANCE,
     archive: true,
-    unsubscribe: true,  // marketing
   },
 
   // ── LINKEDIN ───────────────────────────────────────────────────────────────
@@ -112,86 +102,74 @@ const RULES = [
     from: ["noreply@email.openai.com"],
     label: LABELS.NEWSLETTERS,
     archive: true,
-    unsubscribe: false,
   },
   {
     name: "Fitbit",
     from: ["noreply@fitbit.com"],
     label: LABELS.NEWSLETTERS,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "AXA Belgium – marketing",
     from: ["info@campaigns.axa.be"],
     label: LABELS.NEWSLETTERS,
     archive: true,
-    unsubscribe: true,
   },
 
-  // ── NOISE (désabonnement + archivage) ─────────────────────────────────────
+  // ── NOISE ─────────────────────────────────────────────────────────────────
   {
     name: "Glassdoor – alertes emploi",
     from: ["noreply@glassdoor.com"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "Discord – notifications MEE6",
     from: ["noreply@discord.com"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "Freeletics",
     fromDomain: ["updates.freeletics.com"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "Ryanair",
     fromDomain: ["marketing.ryanairemail.com"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "TradingView",
     from: ["hello@tradingview.com"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "Ivey MSc",
     from: ["msc@ivey.ca"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "Fromagerie Le Chat-Bo",
     fromDomain: ["news.fromagerie-lechatbo.fr"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "MODUL'AIR",
     from: ["tickets@modul-air.com"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
   {
     name: "Hangar",
     from: ["info@thehangar.be"],
     label: LABELS.NOISE,
     archive: true,
-    unsubscribe: true,
   },
 ];
 
@@ -251,10 +229,6 @@ function applyRulesToExistingEmails(labelMap) {
 
           if (rule.archive) {
             thread.moveToArchive();
-          }
-
-          if (rule.unsubscribe) {
-            tryUnsubscribe(thread);
           }
         }
 
@@ -327,40 +301,7 @@ function getLabelIdByName(name) {
   return found ? found.id : null;
 }
 
-// ─── 4. DÉSABONNEMENT VIA LIST-UNSUBSCRIBE ────────────────────────────────────
-
-function tryUnsubscribe(thread) {
-  const messages = thread.getMessages();
-  if (messages.length === 0) return;
-
-  const msg = messages[0];
-  const rawHeaders = msg.getHeader("List-Unsubscribe") || msg.getHeader("list-unsubscribe") || "";
-
-  if (!rawHeaders) return;
-
-  // Extraire mailto: en priorité
-  const mailtoMatch = rawHeaders.match(/<mailto:([^>]+)>/i);
-  if (mailtoMatch) {
-    const unsubAddr = mailtoMatch[1].split("?")[0];
-    const subject = (rawHeaders.match(/\?subject=([^&>]+)/) || [])[1] || "unsubscribe";
-
-    try {
-      GmailApp.sendEmail(unsubAddr, decodeURIComponent(subject), "");
-      Logger.log(`  📧 Unsubscribe envoyé à : ${unsubAddr}`);
-    } catch (e) {
-      Logger.log(`  ⚠️  Échec unsubscribe (${unsubAddr}) : ${e.message}`);
-    }
-    return;
-  }
-
-  // Sinon, URL HTTP — logguer pour traitement manuel
-  const urlMatch = rawHeaders.match(/<(https?:\/\/[^>]+)>/i);
-  if (urlMatch) {
-    Logger.log(`  🔗 Unsubscribe URL (manuel) : ${urlMatch[1]}`);
-  }
-}
-
-// ─── 5. ARCHIVER TOUT CE QUI RESTE DANS L'INBOX ──────────────────────────────
+// ─── 4. ARCHIVER TOUT CE QUI RESTE DANS L'INBOX ──────────────────────────────
 
 function archiveRemainingInbox() {
   Logger.log("Étape 4 : Archivage de tout ce qui reste dans l'inbox...");
