@@ -238,6 +238,14 @@ function getLabelMap() {
 // ─── CRÉATION DES FILTRES GMAIL (futurs emails) ──────────────────────────────
 
 function createGmailFilters() {
+  // Nécessite l'API Gmail avancée : Services > Gmail API (v1)
+  // Si non activée, les filtres sont ignorés — le tri sur l'existant fonctionne quand même.
+  if (typeof Gmail === "undefined") {
+    Logger.log("⚠️  Gmail Advanced Service non activé — filtres ignorés.");
+    Logger.log("   Pour l'activer : Services (icône +) > Gmail API > Ajouter");
+    return;
+  }
+
   for (const rule of RULES) {
     const senders = [];
     if (rule.from) senders.push(...rule.from);
@@ -266,9 +274,18 @@ function createGmailFilters() {
 }
 
 function getLabelIdByName(name) {
-  const labels = (Gmail.Users.Labels.list("me").labels || []);
-  const found = labels.find(function(l) { return l.name === name; });
-  return found ? found.id : null;
+  // Utilise GmailApp (toujours disponible, sans API avancée)
+  const label = GmailApp.getUserLabelByName(name);
+  if (!label) return null;
+
+  // L'ID réel n'est exposé que via l'API avancée — fallback sur le nom si Gmail n'est pas activé
+  if (typeof Gmail !== "undefined") {
+    const labels = (Gmail.Users.Labels.list("me").labels || []);
+    const found = labels.find(function(l) { return l.name === name; });
+    return found ? found.id : null;
+  }
+
+  return null; // Sans API avancée, les filtres sont ignorés
 }
 
 // ─── DÉSABONNEMENT VIA LIST-UNSUBSCRIBE ──────────────────────────────────────
