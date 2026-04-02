@@ -72,9 +72,8 @@ function startOptimizer() {
   const props = PropertiesService.getScriptProperties();
   props.deleteAllProperties();
 
-  // Étape 0 : créer les labels et les filtres (rapide, fait une seule fois)
+  // Étape 0 : créer les labels (les filtres se créent séparément via createGmailFilters())
   createLabels();
-  createGmailFilters();
 
   // Construire la liste de toutes les tâches (query, labelName, unsubscribe)
   const tasks = buildTaskList();
@@ -237,14 +236,17 @@ function getLabelMap() {
 
 // ─── CRÉATION DES FILTRES GMAIL (futurs emails) ──────────────────────────────
 
+/**
+ * OPTIONNEL — Crée des filtres Gmail pour les futurs emails.
+ * Nécessite l'API Gmail avancée activée AVANT d'appeler cette fonction :
+ *   Services (icône +) > Gmail API > Ajouter
+ * Si tu n'as pas activé l'API, ignore cette fonction — le tri sur l'existant fonctionne sans elle.
+ */
 function createGmailFilters() {
-  // Nécessite l'API Gmail avancée : Services > Gmail API (v1)
-  // Si non activée, les filtres sont ignorés — le tri sur l'existant fonctionne quand même.
-  if (typeof Gmail === "undefined") {
-    Logger.log("⚠️  Gmail Advanced Service non activé — filtres ignorés.");
-    Logger.log("   Pour l'activer : Services (icône +) > Gmail API > Ajouter");
-    return;
-  }
+  const labelCache = {};
+
+  // Récupérer tous les labels via l'API avancée (nécessaire pour les IDs)
+  const allLabels = Gmail.Users.Labels.list("me").labels || [];
 
   for (const rule of RULES) {
     const senders = [];
@@ -253,8 +255,13 @@ function createGmailFilters() {
       for (const d of rule.fromDomain) senders.push("@" + d);
     }
 
-    const labelId = getLabelIdByName(rule.label);
-    if (!labelId) continue;
+    // Trouver l'ID du label
+    if (!labelCache[rule.label]) {
+      const found = allLabels.find(function(l) { return l.name === rule.label; });
+      if (!found) continue;
+      labelCache[rule.label] = found.id;
+    }
+    const labelId = labelCache[rule.label];
 
     for (const sender of senders) {
       try {
@@ -271,21 +278,6 @@ function createGmailFilters() {
       }
     }
   }
-}
-
-function getLabelIdByName(name) {
-  // Utilise GmailApp (toujours disponible, sans API avancée)
-  const label = GmailApp.getUserLabelByName(name);
-  if (!label) return null;
-
-  // L'ID réel n'est exposé que via l'API avancée — fallback sur le nom si Gmail n'est pas activé
-  if (typeof Gmail !== "undefined") {
-    const labels = (Gmail.Users.Labels.list("me").labels || []);
-    const found = labels.find(function(l) { return l.name === name; });
-    return found ? found.id : null;
-  }
-
-  return null; // Sans API avancée, les filtres sont ignorés
 }
 
 // ─── DÉSABONNEMENT VIA LIST-UNSUBSCRIBE ──────────────────────────────────────
